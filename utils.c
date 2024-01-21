@@ -29,3 +29,26 @@ void	*ft_memcpy(void *dest, const void *src, size_t size)
 	}
 	return (dest);
 }
+
+uint16_t checksum(uint16_t *data, size_t size) {
+  uint32_t sum = 0;
+
+  for (size_t i = 0; i < size; ++i) {
+    sum += data[i];
+  }
+
+  while (sum >> 16) {
+    sum = (sum & 0xFFFF) + (sum >> 16);
+  }
+
+  return ~sum;
+}
+
+void settime (void *time)
+{
+    struct timeval ptr;
+
+    gettimeofday(&ptr, 0);
+
+    ft_memcpy(time, &ptr.tv_sec, 4);
+}

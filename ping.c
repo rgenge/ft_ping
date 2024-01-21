@@ -8,6 +8,65 @@ void interrupt()
     exit(0);
 }
 
+int receive_packet(int sockfd, struct sockaddr_in addr)
+{
+    char buffer[1500];
+    printf("sockfd: %d\n", sockfd);
+    // receive another packet
+    int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
+        printf("bytes: %d\n", bytes);
+    if (bytes == -1) {
+        // normal return when timeout
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return -1;
+    }
+    printf("cade\n");
+    struct icmp_echo* icmp = (struct icmp_echo*)(buffer + 20);
+
+    // check type
+    if (icmp->type != 0 || icmp->code != 0) {
+        printf("entroutype\n");
+        return 0;
+    }
+
+    // match identifier
+    if (ntohs(icmp->identifier) != g_info.id) {
+        printf("entrouident\n");
+        return 0;
+    }
+
+    // print info
+    printf("%s seq=%d ms\n",
+        inet_ntoa(addr.sin_addr),
+        ntohs(icmp->seq)
+    );
+
+    return 0;
+   printf("%d", sockfd); 
+}
+void send_packet(int sockfd, struct sockaddr_in addr)
+{
+    struct icmp_echo packet;
+    bzero(&packet, sizeof(packet));
+
+    packet.type = 8;
+    packet.identifier = htons(g_info.id);
+    packet.code = 0;
+    packet.seq = g_info.seq;
+    packet.checksum = 0;
+    packet.checksum = checksum((uint16_t *)&packet, sizeof(packet));
+    int ret = sendto(sockfd, &packet, 64, 0, (struct sockaddr *)&addr, sizeof(addr));
+
+    if (ret > 0)
+    {
+        g_info.sent++;
+        printf("sent %d", ret);
+    }
+
+
+}
 void get_addr(char *ip, void *addr)
 {
     struct addrinfo *result;
@@ -33,7 +92,9 @@ void get_addr(char *ip, void *addr)
 void ping(char *ip)
 {
     struct sockaddr_in addr = {0};
+    struct sockaddr_in addr_2 = {0};
     get_addr(ip, &addr);
+     get_addr(ip, &addr_2);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
  //   printf("%s", buf);
@@ -44,24 +105,24 @@ void ping(char *ip)
         exit(2);
     }
     printf("PING %s (%s) 56(84) bytes of data.\n", ip, buf);
-
+    
     struct timeval get_time = getnow();
-    for (int i = 0; i < 16; i++)
+    g_info.seq = 1;
+    g_info.id = getpid();
+    for (int i = 0; i < 5; i++)
     {
-        usleep(100000);
+        send_packet(sockfd, addr);
+        usleep(1000000);
+        receive_packet(sockfd, addr_2);
         struct timeval get_finish = getnow();
         printf("%ld\n", get_finish.tv_sec- get_time.tv_sec);
+        g_info.seq++;
     }
-
-
-
-
-
- //   while(1){printf("o");}
 }
 int main (int argc, char **argv){
 
     char flag;
+    flag = ' ';
     if (argc != 2 && argc != 3)
     {
         fprintf(stderr, "Your must have 2 or 3 arguments");
@@ -86,7 +147,5 @@ int main (int argc, char **argv){
         g_info.min = 100000;
         signal(SIGINT, interrupt);
         ping(g_info.dest);
-
     }
-
 }
