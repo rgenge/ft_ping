@@ -7,23 +7,8 @@ void interrupt()
     printf("\n--- %s ping statistics ---", g_info.dest);
     exit(0);
 }
-typedef struct _iphdr
-{
-    unsigned int   h_len : 4;        // Length of the header
-    unsigned int   version : 4;      // Version of IP
-    unsigned char  tos;            // Type of service
-    unsigned short total_len;      // Total length of the packet
-    unsigned short ident;          // Unique identifier
-    unsigned short frag_and_flags; // Flags
-    unsigned char  ttl;            // Time to live
-    unsigned char  proto;          // Protocol (TCP, UDP etc)
-    unsigned short checksum;       // IP checksum
-    
-    unsigned int   sourceIP;
-    unsigned int   destIP;
-} IpHeader;
 
-void DecodeICMPHeader(char *buf)
+void decode_icmp_header(char *buf)
 {
     IpHeader       *iphdr = NULL;
 
@@ -61,22 +46,13 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         printf("entrouident\n");
         return 0;
     }
-
     // print info
     printf("%s seq=%d ms\n",
         inet_ntoa(addr.sin_addr),
         ntohs(icmp->seq)
     );
-
-    DecodeICMPHeader(buffer);
-    // struct iphdr *ip_hdr = (struct iphdr *)(buffer.data - sizeof(struct iphdr));
-    // int ttl_value = ip_hdr->ttl;
-
-    //  printf("TTL value: %d\n", ttl_value)
-    //   printf("%d bytes from %s: icmp_seq=%d ttl= time=. ms\n", bytes - 20, g_info.ip, icmp->seq/*, *ttl, triptime / 1000, triptime % 100*/);
-
+    decode_icmp_header(buffer);
     return 0;
-   printf("%d", sockfd); 
 }
 void send_packet(int sockfd, struct sockaddr_in addr)
 {

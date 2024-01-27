@@ -31,6 +31,7 @@ struct info {
     struct timeval  start;
     unsigned int    min;
     unsigned int    seq;
+    unsigned int    prev;
     unsigned int    max;
     unsigned int    sum;
     unsigned int    sqsum;
@@ -47,6 +48,22 @@ struct packet {
     char        data[48];       // Data (static)
 };
 
+typedef struct _iphdr
+{
+    unsigned int   h_len : 4;        // Length of the header
+    unsigned int   version : 4;      // Version of IP
+    unsigned char  tos;            // Type of service
+    unsigned short total_len;      // Total length of the packet
+    unsigned short ident;          // Unique identifier
+    unsigned short frag_and_flags; // Flags
+    unsigned char  ttl;            // Time to live
+    unsigned char  proto;          // Protocol (TCP, UDP etc)
+    unsigned short checksum;       // IP checksum
+    
+    unsigned int   sourceIP;
+    unsigned int   destIP;
+} IpHeader;
+
 struct icmp_echo {
     // header
     uint8_t type;
@@ -60,7 +77,7 @@ struct icmp_echo {
     double sending_ts;
     char magic[11];
 };
-
+void decode_icmp_header(char *buf);
 struct timeval getnow (void);
 void	*ft_memcpy(void *dest, const void *src, size_t size);
 uint16_t checksum(uint16_t *data, size_t size);
