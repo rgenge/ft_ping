@@ -7,13 +7,39 @@ void interrupt()
     printf("\n--- %s ping statistics ---", g_info.dest);
     exit(0);
 }
+typedef struct _iphdr
+{
+    unsigned int   h_len : 4;        // Length of the header
+    unsigned int   version : 4;      // Version of IP
+    unsigned char  tos;            // Type of service
+    unsigned short total_len;      // Total length of the packet
+    unsigned short ident;          // Unique identifier
+    unsigned short frag_and_flags; // Flags
+    unsigned char  ttl;            // Time to live
+    unsigned char  proto;          // Protocol (TCP, UDP etc)
+    unsigned short checksum;       // IP checksum
+    
+    unsigned int   sourceIP;
+    unsigned int   destIP;
+} IpHeader;
+
+void DecodeICMPHeader(char *buf)
+{
+    IpHeader       *iphdr = NULL;
+
+    iphdr = (IpHeader *)buf;
+    int received_ttl = iphdr->ttl;
+    printf("TTL value: %d\n", received_ttl);
+}
 
 int receive_packet(int sockfd, struct sockaddr_in addr)
 {
     char buffer[1500];
     printf("sockfd: %d\n", sockfd);
     // receive another packet
-    int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
+    struct sockaddr_in from;
+    unsigned int fromlen = sizeof(from);
+    int bytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
         printf("bytes: %d\n", bytes);
     if (bytes == -1) {
         // normal return when timeout
@@ -22,12 +48,11 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         }
         return -1;
     }
-    printf("cade\n");
     struct icmp_echo* icmp = (struct icmp_echo*)(buffer + 20);
 
     // check type
     if (icmp->type != 0 || icmp->code != 0) {
-        printf("entroutype\n");
+        printf("entroutype %d\n",icmp->type );
         return 0;
     }
 
@@ -42,6 +67,13 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         inet_ntoa(addr.sin_addr),
         ntohs(icmp->seq)
     );
+
+    DecodeICMPHeader(buffer);
+    // struct iphdr *ip_hdr = (struct iphdr *)(buffer.data - sizeof(struct iphdr));
+    // int ttl_value = ip_hdr->ttl;
+
+    //  printf("TTL value: %d\n", ttl_value)
+    //   printf("%d bytes from %s: icmp_seq=%d ttl= time=. ms\n", bytes - 20, g_info.ip, icmp->seq/*, *ttl, triptime / 1000, triptime % 100*/);
 
     return 0;
    printf("%d", sockfd); 
@@ -104,12 +136,11 @@ void ping(char *ip)
         fprintf(stderr, "Error: Could not connect to the IP provided\n");
         exit(2);
     }
-    printf("PING %s (%s) 56(84) bytes of data.\n", ip, buf);
-    
+    g_info.ip = ip;
     struct timeval get_time = getnow();
     g_info.seq = 1;
     g_info.id = getpid();
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 8; i++)
     {
         send_packet(sockfd, addr);
         usleep(1000000);

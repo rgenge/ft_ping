@@ -22,6 +22,8 @@
 # include <signal.h>
 # include <errno.h>
 
+
+
 struct info {
     unsigned int    sent;
     unsigned int    received;
@@ -33,6 +35,7 @@ struct info {
     unsigned int    sum;
     unsigned int    sqsum;
     unsigned int    id;
+    char *          ip;
 };
 struct packet {
     uint8_t     type;           // 8 for request, 0 for reply

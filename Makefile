@@ -2,7 +2,7 @@ NAME = ping
 
 CC = gcc
 
-CFLAGS = -g -Wall -Wextra -Werror
+CFLAGS = -g -Wall -Wextra -Werror 
 
 SOURCE = ping.c utils.c
 
