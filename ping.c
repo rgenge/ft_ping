@@ -2,6 +2,25 @@
 
 struct  info g_info = {0};
 
+void getHostnameFromIP(const char *ip_address) {
+    struct sockaddr_in sa;
+    char host[NI_MAXHOST];
+
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = inet_addr(ip_address);
+
+    if (getnameinfo((struct sockaddr *)&sa, sizeof(sa), host, NI_MAXHOST, NULL, 0, 0) == 0) {
+        printf("%s %s", ip_address, host);
+    } else {
+        printf(" %s ", ip_address);
+    }
+}
+
+unsigned int timediff (struct timeval old, struct timeval new)
+{
+    return (new.tv_sec - old.tv_sec) * 1000000 + new.tv_usec - old.tv_usec;
+}
+
 void interrupt()
 {
     printf("\n--- %s ping statistics ---", g_info.dest);
@@ -14,18 +33,18 @@ void decode_icmp_header(char *buf)
 
     iphdr = (IpHeader *)buf;
     int received_ttl = iphdr->ttl;
-    printf("TTL value: %d\n", received_ttl);
+    printf("TTL=%d ", received_ttl);
 }
 
 int receive_packet(int sockfd, struct sockaddr_in addr)
 {
     char buffer[1500];
-    printf("sockfd: %d\n", sockfd);
+ //   printf("sockfd: %d\n", sockfd);
     // receive another packet
     struct sockaddr_in from;
     unsigned int fromlen = sizeof(from);
     int bytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
-        printf("bytes: %d\n", bytes);
+ //       printf("bytes: %d\n", bytes);
     if (bytes == -1) {
         // normal return when timeout
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -47,13 +66,16 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         return 0;
     }
     // print info
-    printf("%s seq=%d ms\n",
-        inet_ntoa(addr.sin_addr),
-        ntohs(icmp->seq)
+    getHostnameFromIP(inet_ntoa(addr.sin_addr));
+    printf(" icmp_seq=%d ",
+//        inet_ntoa(addr.sin_addr),
+        g_info.seq
     );
     decode_icmp_header(buffer);
     return 0;
 }
+
+
 void send_packet(int sockfd, struct sockaddr_in addr)
 {
     struct icmp_echo packet;
@@ -66,11 +88,10 @@ void send_packet(int sockfd, struct sockaddr_in addr)
     packet.checksum = 0;
     packet.checksum = checksum((uint16_t *)&packet, sizeof(packet));
     int ret = sendto(sockfd, &packet, 64, 0, (struct sockaddr *)&addr, sizeof(addr));
-
     if (ret > 0)
     {
         g_info.sent++;
-        printf("sent %d", ret);
+        printf("%d bytes from: ", ret);
     }
 
 
@@ -97,6 +118,8 @@ void get_addr(char *ip, void *addr)
     // inet_pton(AF_INET, ip, &(addr->sin_addr));
     freeaddrinfo(result);
 }
+
+
 void ping(char *ip)
 {
     struct sockaddr_in addr = {0};
@@ -105,7 +128,8 @@ void ping(char *ip)
      get_addr(ip, &addr_2);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
- //   printf("%s", buf);
+    printf("\ntest:%s\n", inet_ntoa(addr.sin_addr));
+
 
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0) {
@@ -113,17 +137,22 @@ void ping(char *ip)
         exit(2);
     }
     g_info.ip = ip;
-    struct timeval get_time = getnow();
+    struct timeval get_time;
     g_info.seq = 1;
     g_info.id = getpid();
+    unsigned int triptime;
     for (int i = 0; i < 8; i++)
     {
+        get_time = getnow();
         send_packet(sockfd, addr);
-        usleep(1000000);
+        // usleep(100000);
         receive_packet(sockfd, addr_2);
-        struct timeval get_finish = getnow();
-        printf("%ld\n", get_finish.tv_sec- get_time.tv_sec);
+   //     struct timeval get_finish = getnow();
+ //       printf("time: %ld\n", get_finish.tv_sec- get_time.tv_sec);
+        triptime = timediff(get_time, getnow());
+        printf("time: %d.%d\n", triptime / 1000, triptime % 100);
         g_info.seq++;
+        usleep(1000000);
     }
 }
 int main (int argc, char **argv){
@@ -140,7 +169,7 @@ int main (int argc, char **argv){
         if (argv[i][0] == '-' && argv[i][2] == '\0')
             flag = argv[i][1];            
     }
-    if (flag == 'h')
+    if (flag == 'h' || (argc >2 && argv[2][0] == '-' && argv[2][1] == '?' && argv[2][2] == '\0'))
     {
         printf("Usage\n\tping [options] <destination>\n\nOptions:\n"
         "\t<destination>      dns name or ip address\n"
