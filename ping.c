@@ -2,7 +2,7 @@
 
 struct  info g_info = {0};
 
-void getHostnameFromIP(const char *ip_address) {
+void get_hostname(const char *ip_address) {
     struct sockaddr_in sa;
     char host[NI_MAXHOST];
 
@@ -16,14 +16,20 @@ void getHostnameFromIP(const char *ip_address) {
     }
 }
 
-unsigned int timediff (struct timeval old, struct timeval new)
-{
-    return (new.tv_sec - old.tv_sec) * 1000000 + new.tv_usec - old.tv_usec;
-}
-
 void interrupt()
 {
     printf("\n--- %s ping statistics ---", g_info.dest);
+    printf("%u packets transmitted, %u received, %u%% packet loss, time %ums\n",
+        g_info.sent, g_info.received, 100 - (100 * g_info.received / g_info.sent), timediff(g_info.start, getnow()) / 1000);
+    
+    if (g_info.received) {
+        unsigned int avg = g_info.sum / g_info.received;
+        unsigned int mdev = sqrt((g_info.squaresum / g_info.received) - (avg * avg));
+
+        printf("rtt min/avg/max/mdev = %u.%u/%u.%u/%u.%u/%u.%u ms\n",
+            g_info.min / 1000, g_info.min % 1000, avg / 1000, avg % 1000,
+            g_info.max / 1000, g_info.max % 1000, mdev / 1000, mdev % 1000);
+    }
     exit(0);
 }
 
@@ -39,47 +45,43 @@ void decode_icmp_header(char *buf)
 int receive_packet(int sockfd, struct sockaddr_in addr)
 {
     char buffer[1500];
- //   printf("sockfd: %d\n", sockfd);
-    // receive another packet
     struct sockaddr_in from;
     unsigned int fromlen = sizeof(from);
-    int bytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
- //       printf("bytes: %d\n", bytes);
+    int bytes;
+    for (int i = 0; i < 5; i++){
+    
+        bytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
+        if (bytes != -1)
+        {
+            break;
+        }
+        usleep(1000);
+    }
     if (bytes == -1) {
-        // normal return when timeout
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return 0;
         }
         return -1;
     }
     struct icmp_echo* icmp = (struct icmp_echo*)(buffer + 20);
-
-    // check type
     if (icmp->type != 0 || icmp->code != 0) {
-        printf("entroutype %d\n",icmp->type );
         return 0;
     }
-
-    // match identifier
     if (ntohs(icmp->identifier) != g_info.id) {
-        printf("entrouident\n");
         return 0;
     }
-    // print info
-    getHostnameFromIP(inet_ntoa(addr.sin_addr));
-    printf(" icmp_seq=%d ",
-//        inet_ntoa(addr.sin_addr),
-        g_info.seq
-    );
+    get_hostname(inet_ntoa(addr.sin_addr));
+    printf(" icmp_seq=%d ",g_info.seq);
     decode_icmp_header(buffer);
+    g_info.received++;
     return 0;
 }
 
-
-void send_packet(int sockfd, struct sockaddr_in addr)
+int send_packet(int sockfd, struct sockaddr_in addr)
 {
     struct icmp_echo packet;
     bzero(&packet, sizeof(packet));
+    int flag = 0;
 
     packet.type = 8;
     packet.identifier = htons(g_info.id);
@@ -90,11 +92,11 @@ void send_packet(int sockfd, struct sockaddr_in addr)
     int ret = sendto(sockfd, &packet, 64, 0, (struct sockaddr *)&addr, sizeof(addr));
     if (ret > 0)
     {
-        g_info.sent++;
         printf("%d bytes from: ", ret);
+        flag = 1;
     }
-
-
+    g_info.sent++;
+    return flag;
 }
 void get_addr(char *ip, void *addr)
 {
@@ -112,10 +114,6 @@ void get_addr(char *ip, void *addr)
             break ;
         }
     }
-    //   memset(addr, 0, sizeof(struct sockaddr_in));
-    // addr->sin_family = AF_INET;
-    // addr->sin_port = htons(0);  // Use any available port
-    // inet_pton(AF_INET, ip, &(addr->sin_addr));
     freeaddrinfo(result);
 }
 
@@ -123,14 +121,10 @@ void get_addr(char *ip, void *addr)
 void ping(char *ip)
 {
     struct sockaddr_in addr = {0};
-    struct sockaddr_in addr_2 = {0};
     get_addr(ip, &addr);
-     get_addr(ip, &addr_2);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
-    printf("\ntest:%s\n", inet_ntoa(addr.sin_addr));
-
-
+    printf("\nPING:%s\n", inet_ntoa(addr.sin_addr));
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0) {
         fprintf(stderr, "Error: Could not connect to the IP provided\n");
@@ -141,16 +135,21 @@ void ping(char *ip)
     g_info.seq = 1;
     g_info.id = getpid();
     unsigned int triptime;
+    int send_flag;
     for (int i = 0; i < 8; i++)
     {
-        get_time = getnow();
-        send_packet(sockfd, addr);
-        // usleep(100000);
-        receive_packet(sockfd, addr_2);
-   //     struct timeval get_finish = getnow();
- //       printf("time: %ld\n", get_finish.tv_sec- get_time.tv_sec);
+        get_time = getnow();     
+        send_flag = send_packet(sockfd, addr);
+        if(send_flag == 1)
+        {
+            receive_packet(sockfd, addr);
+        }      
         triptime = timediff(get_time, getnow());
         printf("time: %d.%d\n", triptime / 1000, triptime % 100);
+        g_info.min = min(g_info.min, triptime);
+        g_info.max = max(g_info.max, triptime);
+        g_info.sum += triptime;
+        g_info.squaresum += triptime * triptime;
         g_info.seq++;
         usleep(1000000);
     }
@@ -167,7 +166,9 @@ int main (int argc, char **argv){
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-' && argv[i][2] == '\0')
-            flag = argv[i][1];            
+            flag = argv[i][1];   
+        if ((argc == 3 ) && argv[i][0] == '?' && argv[i][1] == '\0' && argv[i - 1][0] == '-' && argv[i - 1][1] == 'v')
+            flag = 'h';          
     }
     if (flag == 'h' || (argc >2 && argv[2][0] == '-' && argv[2][1] == '?' && argv[2][2] == '\0'))
     {
@@ -180,7 +181,7 @@ int main (int argc, char **argv){
     {
         g_info.dest = argv[1];
         g_info.start = getnow();
-        g_info.min = 100000;
+        g_info.min = 50000;
         signal(SIGINT, interrupt);
         ping(g_info.dest);
     }

@@ -47,8 +47,27 @@ uint16_t checksum(uint16_t *data, size_t size) {
 void settime (void *time)
 {
     struct timeval ptr;
-
     gettimeofday(&ptr, 0);
-
     ft_memcpy(time, &ptr.tv_sec, 4);
+}
+
+unsigned int min (unsigned int a, unsigned int b)
+{
+    if (a < b)
+        return a;
+    else
+        return b;
+}
+
+unsigned int max (unsigned int a, unsigned int b)
+{
+    if (a > b)
+        return a;
+    else
+        return b;
+}
+
+unsigned int timediff (struct timeval old, struct timeval new)
+{
+    return (new.tv_sec - old.tv_sec) * 1000000 + new.tv_usec - old.tv_usec;
 }

@@ -2,9 +2,9 @@ NAME = ping
 
 CC = gcc
 
-CFLAGS = -g -Wall -Wextra -Werror 
+CFLAGS = -g -Wall -Wextra -Werror
 
-SOURCE = ping.c utils.c
+SOURCE = ping.c utils.c 
 
 OBJ = $(SOURCE:.c=.o)
 
@@ -12,8 +12,8 @@ INC = ping.h
 
 all: $(NAME) 
 
-$(NAME) : ping.c $(INC)
-	$(CC) $(CFLAGS) $(SOURCE) -o $(NAME)
+$(NAME) : $(OBJ)
+	$(CC) $(CFLAGS) $(SOURCE) -o $(NAME) -lm
 
 clean:
 	@rm -rf $(OBJ)
