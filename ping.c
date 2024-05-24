@@ -21,8 +21,9 @@ void interrupt()
     printf("\n--- %s ping statistics ---", g_info.dest);
     printf("%u packets transmitted, %u received, %u%% packet loss, time %ums\n",
         g_info.sent, g_info.received, 100 - (100 * g_info.received / g_info.sent), timediff(g_info.start, getnow()) / 1000);
-    
-    if (g_info.received) {
+
+    if (g_info.received) 
+    {
         unsigned int avg = g_info.sum / g_info.received;
         unsigned int mdev = sqrt((g_info.squaresum / g_info.received) - (avg * avg));
 
@@ -72,6 +73,10 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
     }
     get_hostname(inet_ntoa(addr.sin_addr));
     printf(" icmp_seq=%d ",g_info.seq);
+    if (g_info.v_flag == 1)
+    {
+        printf("ident: %d ", icmp->identifier);
+    }
     decode_icmp_header(buffer);
     g_info.received++;
     return 0;
@@ -98,6 +103,7 @@ int send_packet(int sockfd, struct sockaddr_in addr)
     g_info.sent++;
     return flag;
 }
+
 void get_addr(char *ip, void *addr)
 {
     struct addrinfo *result;
@@ -124,9 +130,10 @@ void ping(char *ip)
     get_addr(ip, &addr);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
-    printf("\nPING:%s\n", inet_ntoa(addr.sin_addr));
+    printf("PING %s (%s) %d(%d) bytes of data.\n", g_info.dest, inet_ntoa(addr.sin_addr),  56, 56 + 8 + 20); // ICMP data (56)+ ICMP header(8) + Ipv4 header(20)
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-    if (sockfd < 0) {
+    if (sockfd < 0) 
+    {
         fprintf(stderr, "Error: Could not connect to the IP provided\n");
         exit(2);
     }
@@ -158,6 +165,7 @@ int main (int argc, char **argv){
 
     char flag;
     flag = ' ';
+    g_info.v_flag = 0;
     if (argc != 2 && argc != 3)
     {
         fprintf(stderr, "Your must have 2 or 3 arguments");
@@ -180,6 +188,16 @@ int main (int argc, char **argv){
     else
     {
         g_info.dest = argv[1];
+        if (argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0')
+        {
+            g_info.dest = argv[2];
+            g_info.v_flag = 1;
+        }
+        if (g_info.v_flag)
+        {
+            printf("ping: sock4.fd: 3 (socktype: SOCK_RAW), sock6.fd: 4 (socktype: SOCK_RAW), hints.ai_family: AF_UNSPEC\n");
+            printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", argv[2]);
+        }
         g_info.start = getnow();
         g_info.min = 50000;
         signal(SIGINT, interrupt);

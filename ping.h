@@ -22,8 +22,6 @@
 # include <signal.h>
 # include <errno.h>
 
-
-
 struct info {
     unsigned        sent;
     unsigned int    received;
@@ -37,15 +35,16 @@ struct info {
     unsigned int    squaresum;
     unsigned int    id;
     char *          ip;
+    unsigned int    v_flag;
 };
 struct packet {
-    uint8_t     type;           // 8 for request, 0 for reply
-    uint8_t     code;           // Always 0
-    uint16_t    checksum;       // Computed total for checks
-    uint16_t    identifier;     // Unique ID of current ping "loop" (always 0 here)
-    uint16_t    sequence_number;// Unique ID of ping in loop (starts at 1, increments)
-    char        time[8];        // Timestamp as data optimization
-    char        data[48];       // Data (static)
+    uint8_t     type;         
+    uint8_t     code;   
+    uint16_t    checksum;   
+    uint16_t    identifier;   
+    uint16_t    sequence_number;
+    char        time[8];       
+    char        data[48];
 };
 
 typedef struct _iphdr
