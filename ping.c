@@ -18,19 +18,20 @@ void get_hostname(const char *ip_address) {
 
 void interrupt()
 {
-    printf("\n--- %s ping statistics ---", g_info.dest);
+    printf("\n--- %s ping statistics ---", g_info.hostname);
     printf("%u packets transmitted, %u received, %u%% packet loss, time %ums\n",
         g_info.sent, g_info.received, 100 - (100 * g_info.received / g_info.sent), timediff(g_info.start, getnow()) / 1000);
 
-    if (g_info.received) 
+    if (g_info.received && g_info.seq > 1)
     {
         unsigned int avg = g_info.sum / g_info.received;
-        unsigned int mdev = sqrt((g_info.squaresum / g_info.received) - (avg * avg));
+        unsigned int stddev = sqrt(g_info.squaresum / (g_info.received - 1) - (avg * avg * g_info.received) / (g_info.received - 1));
 
-        printf("rtt min/avg/max/mdev = %u.%u/%u.%u/%u.%u/%u.%u ms\n",
+        printf("rtt min/avg/max/stddev = %u.%u/%u.%u/%u.%u/%u.%u ms\n",
             g_info.min / 1000, g_info.min % 1000, avg / 1000, avg % 1000,
-            g_info.max / 1000, g_info.max % 1000, mdev / 1000, mdev % 1000);
+            g_info.max / 1000, g_info.max % 1000, stddev / 1000, stddev % 1000);
     }
+	free(g_info.hostname);
     exit(0);
 }
 
@@ -50,7 +51,7 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
     unsigned int fromlen = sizeof(from);
     int bytes;
     for (int i = 0; i < 5; i++){
-    
+
         bytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
         if (bytes != -1)
         {
@@ -130,27 +131,43 @@ void ping(char *ip)
     get_addr(ip, &addr);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
-    printf("PING %s (%s) %d(%d) bytes of data.\n", g_info.dest, inet_ntoa(addr.sin_addr),  56, 56 + 8 + 20); // ICMP data (56)+ ICMP header(8) + Ipv4 header(20)
+    char hostname[NI_MAXHOST];
+    if (getnameinfo((struct sockaddr*)&addr, sizeof(addr), hostname, NI_MAXHOST, NULL, 0, NI_NAMEREQD) == 0)
+    {
+		g_info.hostname = malloc(NI_MAXHOST);
+		memcpy(g_info.hostname, hostname, NI_MAXHOST);
+		g_info.hostname[NI_MAXHOST - 1] = '\0';
+        printf("PING %s (%s) %d(%d) bytes of data.\n", hostname, buf, 56, 56 +  8 + 20);
+    }
+    else
+    {
+        printf("PING %s (%s) %d(%d) bytes of data.\n", g_info.dest, buf, 56, 56 + 8 + 20);
+    }
+	if (g_info.v_flag == 1)
+	{
+		pid_t pid = getpid();
+		printf("0x%04x = %d \n", pid, pid);
+	}
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-    if (sockfd < 0) 
+    if (sockfd < 0)
     {
         fprintf(stderr, "Error: Could not connect to the IP provided\n");
         exit(2);
     }
     g_info.ip = ip;
     struct timeval get_time;
-    g_info.seq = 1;
+    g_info.seq = 0;
     g_info.id = getpid();
     unsigned int triptime;
     int send_flag;
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 100; i++)
     {
-        get_time = getnow();     
+        get_time = getnow();
         send_flag = send_packet(sockfd, addr);
         if(send_flag == 1)
         {
             receive_packet(sockfd, addr);
-        }      
+        }
         triptime = timediff(get_time, getnow());
         printf("time: %d.%d\n", triptime / 1000, triptime % 100);
         g_info.min = min(g_info.min, triptime);
@@ -174,16 +191,15 @@ int main (int argc, char **argv){
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-' && argv[i][2] == '\0')
-            flag = argv[i][1];   
+            flag = argv[i][1];
         if ((argc == 3 ) && argv[i][0] == '?' && argv[i][1] == '\0' && argv[i - 1][0] == '-' && argv[i - 1][1] == 'v')
-            flag = 'h';          
+            flag = 'h';
     }
     if (flag == 'h' || (argc >2 && argv[2][0] == '-' && argv[2][1] == '?' && argv[2][2] == '\0'))
     {
         printf("Usage\n\tping [options] <destination>\n\nOptions:\n"
         "\t<destination>      dns name or ip address\n"
-        "\t-h\t        print help and exit\n"
-        "\t-n\t        do dns name resolution\n");
+        "\t-h\t        print help and exit\n");
     }
     else
     {
@@ -192,11 +208,6 @@ int main (int argc, char **argv){
         {
             g_info.dest = argv[2];
             g_info.v_flag = 1;
-        }
-        if (g_info.v_flag)
-        {
-            printf("ping: sock4.fd: 3 (socktype: SOCK_RAW), sock6.fd: 4 (socktype: SOCK_RAW), hints.ai_family: AF_UNSPEC\n");
-            printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", argv[2]);
         }
         g_info.start = getnow();
         g_info.min = 50000;

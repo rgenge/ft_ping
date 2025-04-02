@@ -36,14 +36,15 @@ struct info {
     unsigned int    id;
     char *          ip;
     unsigned int    v_flag;
+	char *          hostname;
 };
 struct packet {
-    uint8_t     type;         
-    uint8_t     code;   
-    uint16_t    checksum;   
-    uint16_t    identifier;   
+    uint8_t     type;
+    uint8_t     code;
+    uint16_t    checksum;
+    uint16_t    identifier;
     uint16_t    sequence_number;
-    char        time[8];       
+    char        time[8];
     char        data[48];
 };
 
@@ -57,7 +58,7 @@ typedef struct _iphdr
     unsigned short  frag_and_flags; // Flags
     unsigned char   ttl;            // Time to live
     unsigned char   proto;          // Protocol (TCP, UDP etc)
-    unsigned short  checksum;       // IP checksum  
+    unsigned short  checksum;       // IP checksum
     unsigned int    sourceIP;
     unsigned int    destIP;
 } IpHeader;
