@@ -57,7 +57,6 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         {
             break;
         }
-        usleep(10);
     }
     if (bytes == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
