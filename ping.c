@@ -168,7 +168,7 @@ void ping(char *ip)
             receive_packet(sockfd, addr);
         }
         triptime = timediff(get_time, getnow());
-        printf("time: %d.%d\n", triptime / 1000, triptime % 100);
+        printf("time: %d.%d ms\n", triptime / 1000, triptime % 100);
         g_info.min = min(g_info.min, triptime);
         g_info.max = max(g_info.max, triptime);
         g_info.sum += triptime;
