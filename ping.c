@@ -66,7 +66,7 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
         return -1;
     }
     struct icmp_echo* icmp = (struct icmp_echo*)(buffer + 20);
-    if (icmp->type != 0 || icmp->code != 0) {
+    if (icmp->type != 0 && icmp->code != 0) {
         return 0;
     }
     if (ntohs(icmp->identifier) != g_info.id) {
@@ -160,7 +160,7 @@ void ping(char *ip)
     g_info.id = getpid();
     unsigned int triptime;
     int send_flag;
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 1000; i++)
     {
         get_time = getnow();
         send_flag = send_packet(sockfd, addr);
