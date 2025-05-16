@@ -18,15 +18,14 @@ void get_hostname(const char *ip_address) {
 
 void interrupt()
 {
-    printf("\n--- %s ping statistics ---", g_info.hostname);
-    printf("%u packets transmitted, %u received, %u%% packet loss, time %ums\n",
-        g_info.sent, g_info.received, 100 - (100 * g_info.received / g_info.sent), timediff(g_info.start, getnow()) / 1000);
-
     if (g_info.received && g_info.seq > 1)
     {
+
         unsigned int avg = g_info.sum / g_info.received;
         unsigned int stddev = sqrt(g_info.squaresum / (g_info.received - 1) - (avg * avg * g_info.received) / (g_info.received - 1));
-
+        printf("\n--- %s ping statistics ---", g_info.hostname);
+        printf("%u packets transmitted, %u received, %u%% packet loss, time %ums\n",
+            g_info.sent, g_info.received, 100 - (100 * g_info.received / g_info.sent), timediff(g_info.start, getnow()) / 1000);
         printf("rtt min/avg/max/stddev = %u.%u/%u.%u/%u.%u/%u.%u ms\n",
             g_info.min / 1000, g_info.min % 1000, avg / 1000, avg % 1000,
             g_info.max / 1000, g_info.max % 1000, stddev / 1000, stddev % 1000);
@@ -84,8 +83,9 @@ int receive_packet(int sockfd, struct sockaddr_in addr)
 
 int send_packet(int sockfd, struct sockaddr_in addr)
 {
-    struct icmp_echo packet;
-    bzero(&packet, sizeof(packet));
+    struct icmp_echo packet = {0};
+    memset(&packet, 0, sizeof(packet));
+
     int flag = 0;
 
     packet.type = 8;
@@ -93,6 +93,8 @@ int send_packet(int sockfd, struct sockaddr_in addr)
     packet.code = 0;
     packet.seq = g_info.seq;
     packet.checksum = 0;
+	settime(&packet.time);
+	memcpy(&packet.data, DATA, sizeof(DATA));
     packet.checksum = checksum((uint16_t *)&packet, sizeof(packet));
     int ret = sendto(sockfd, &packet, 64, 0, (struct sockaddr *)&addr, sizeof(addr));
     if (ret > 0)
@@ -104,25 +106,23 @@ int send_packet(int sockfd, struct sockaddr_in addr)
     return flag;
 }
 
-void get_addr(char *ip, void *addr)
-{
+void get_addr(char *ip, struct sockaddr_in *addr) {
+    struct addrinfo hints;
     struct addrinfo *result;
 
-    if (getaddrinfo(ip, NULL, NULL, &result)) {
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_flags = AI_CANONNAME;
+
+    if (getaddrinfo(ip, NULL, &hints, &result)) {
         fprintf(stderr, "ft_ping: %s: Name or service not known\n", ip);
         exit(2);
     }
-    for (struct addrinfo *node = result ; node && node->ai_next ; node = node->ai_next)
-    {
-        if (((struct sockaddr_in *)node->ai_addr)->sin_addr.s_addr)
-        {
-            ft_memcpy(addr, node->ai_addr, sizeof(struct sockaddr_in));
-            break ;
-        }
-    }
+
+    g_info.hostname = strdup(result->ai_canonname);
+    memcpy(addr, result->ai_addr, sizeof(struct sockaddr_in));
     freeaddrinfo(result);
 }
-
 
 void ping(char *ip)
 {
@@ -130,26 +130,16 @@ void ping(char *ip)
     get_addr(ip, &addr);
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
-    char hostname[NI_MAXHOST];
-    if (getnameinfo((struct sockaddr*)&addr, sizeof(addr), hostname, NI_MAXHOST, NULL, 0, NI_NAMEREQD) == 0)
+    printf("PING %s (%s) %d(%d) bytes of data.\n", g_info.hostname, buf, 56, 56 +  8 + 20);
+    if (g_info.v_flag == 1)
     {
-		g_info.hostname = malloc(NI_MAXHOST);
-		memcpy(g_info.hostname, hostname, NI_MAXHOST);
-		g_info.hostname[NI_MAXHOST - 1] = '\0';
-        printf("PING %s (%s) %d(%d) bytes of data.\n", hostname, buf, 56, 56 +  8 + 20);
+        pid_t pid = getpid();
+        printf("0x%04x = %d \n", pid, pid);
     }
-    else
-    {
-        printf("PING %s (%s) %d(%d) bytes of data.\n", g_info.dest, buf, 56, 56 + 8 + 20);
-    }
-	if (g_info.v_flag == 1)
-	{
-		pid_t pid = getpid();
-		printf("0x%04x = %d \n", pid, pid);
-	}
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0)
     {
+		free(g_info.hostname);
         fprintf(stderr, "Error: Could not connect to the IP provided\n");
         exit(2);
     }
@@ -177,6 +167,7 @@ void ping(char *ip)
         usleep(1000000);
     }
 }
+
 int main (int argc, char **argv){
 
     char flag;

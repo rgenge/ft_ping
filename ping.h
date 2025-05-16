@@ -1,6 +1,7 @@
 #ifndef FT_PING_H
 # define FT_PING_H
 
+# define DATA "0123456789012345678901234567890123456789012345678912345"
 // Std
 # include <stdlib.h>
 # include <unistd.h>
@@ -38,46 +39,24 @@ struct info {
     unsigned int    v_flag;
 	char *          hostname;
 };
-struct packet {
-    uint8_t     type;
-    uint8_t     code;
-    uint16_t    checksum;
-    uint16_t    identifier;
-    uint16_t    sequence_number;
-    char        time[8];
-    char        data[48];
-};
 
 typedef struct _iphdr
 {
-    unsigned int    h_len : 4;        // Length of the header
-    unsigned int    version : 4;      // Version of IP
-    unsigned char   tos;            // Type of service
-    unsigned short  total_len;      // Total length of the packet
-    unsigned short  ident;          // Unique identifier
-    unsigned short  frag_and_flags; // Flags
-    unsigned char   ttl;            // Time to live
-    unsigned char   proto;          // Protocol (TCP, UDP etc)
-    unsigned short  checksum;       // IP checksum
-    unsigned int    sourceIP;
-    unsigned int    destIP;
+    unsigned char   ttl;
 } IpHeader;
 
 struct icmp_echo {
-    // header
     uint8_t type;
     uint8_t code;
     uint16_t checksum;
     uint16_t identifier;
     uint16_t seq;
-
-    // data
-    double  sending_ts;
-    char    magic[11];
+    char     time[8];
+    char     data[48];
 };
+
 void            decode_icmp_header(char *buf);
 struct timeval  getnow (void);
-void            *ft_memcpy(void *dest, const void *src, size_t size);
 uint16_t        checksum(uint16_t *data, size_t size);
 void            settime (void *time);
 unsigned int timediff (struct timeval old, struct timeval new);

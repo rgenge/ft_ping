@@ -9,46 +9,22 @@ struct timeval getnow (void)
     return now;
 }
 
-void	*ft_memcpy(void *dest, const void *src, size_t size)
-{
-	unsigned char	*dest_aux;
-	unsigned char	*src_aux;
-	size_t			index;
-
-	if (!dest && !src)
-		return (NULL);
-	dest_aux = (unsigned char *)dest;
-	src_aux = (unsigned char *)src;
-	index = 0;
-	while (index < size)
-	{
-		*dest_aux = *src_aux;
-		dest_aux++;
-		src_aux++;
-		index++;
-	}
-	return (dest);
-}
-
 uint16_t checksum(uint16_t *data, size_t size) {
-  uint32_t sum = 0;
+	uint32_t sum = 0;
 
-  for (size_t i = 0; i < size; ++i) {
-    sum += data[i];
-  }
+    for (size_t i = 0; i < size / 2; i++) {
+        sum += data[i];
+    }
+    sum = (sum >> 16) + (sum & 0xffff);
 
-  while (sum >> 16) {
-    sum = (sum & 0xFFFF) + (sum >> 16);
-  }
-
-  return ~sum;
+    return ~sum;
 }
 
 void settime (void *time)
 {
     struct timeval ptr;
     gettimeofday(&ptr, 0);
-    ft_memcpy(time, &ptr.tv_sec, 4);
+    memcpy(time, &ptr.tv_sec, 4);
 }
 
 unsigned int min (unsigned int a, unsigned int b)
